@@ -70,7 +70,7 @@ def cifar_encoder(x, reuse = False ):
         out3 = tf.layers.conv2d(out2, l[2], 3, strides=2, padding='SAME', name='conv2') # 8*8*32 -> 4*4*64
         out3 = tf.nn.leaky_relu(out3)
         out3 = tf.layers.flatten(out3) # 4*4*64 -> 1024
-        output = tf.layers.dense(out3, l[3], name='fc') # 1024 -> 20
+        output = tf.layers.dense(out3, l[3],activation=tf.nn.sigmoid, name='fc') # 1024 -> 20
         return output
 
 def cifar_decoder(z, reuse = False):
@@ -109,8 +109,10 @@ with g.as_default():
     
     mnist_loss = tf.reduce_mean( tf.square(mnist_X - mnist_dec) )
     cifar_loss = tf.reduce_mean( tf.square(cifar_X - cifar_dec) )
-    z_loss = tf.constant(0.0)#TODO
-    loss = mnist_loss + cifar_loss + z_loss
+    is_equal = tf.cast(tf.equal(mnist_Y,cifar_Y),tf.float32)
+    dist = tf.reduce_mean(tf.square(mnist_enc-cifar_enc))
+    z_loss =tf.reduce_mean(tf.multiply(is_equal,dist)*9-tf.multiply((1-is_equal),dist))
+    loss = mnist_loss + cifar_loss + z_loss*0.03
 
     #t_vars = tf.trainable_variables()
     #m_vars = [var for var in t_vars if "mnist" in var.name]
