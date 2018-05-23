@@ -11,53 +11,34 @@ batch_size = 100
 learning_rate = 0.001
 random_size = 100
 image_size = 28*28
+z_dim = 20
 
 init = tf.random_normal_initializer(mean=0, stddev=0.15)
 
 def encoder(x, reuse = False ):
-    with tf.variable_scope(name_or_scope = "encoder") as scope:
-        W1 = tf.get_variable(name="W1",shape = [784,50],initializer = init)
-        b1 = tf.get_variable(name="b1",shape = [50],initializer = init)
-        r1 = tf.matmul(x,W1)+b1
-        out1 = tf.nn.relu(r1)
-        
-        W2 = tf.get_variable(name="W2",shape = [50,30],initializer = init)
-        b2 = tf.get_variable(name="b2",shape = [30],initializer = init)
-        r2 = tf.matmul(out1,W2)+b2
-        out2 = tf.nn.relu(r2)
-        
-        W3 = tf.get_variable(name="W3",shape = [30,20],initializer = init)
-        b3 = tf.get_variable(name="b3",shape = [20],initializer = init)
-        r3 = tf.matmul(out2,W3)+b3
-        output = tf.nn.sigmoid(r3)
+    l = [image_size, 50, 30, z_dim]
+    with tf.variable_scope(name_or_scope = "mnist_encoder") as scope:
+        out1 = tf.layers.dense(x, l[1], activation=tf.nn.relu)
+        out2 = tf.layers.dense(out1, l[2], activation=tf.nn.relu)
+        output = tf.layers.dense(out2, l[3], activation=tf.nn.sigmoid)
         return output
 
 def decoder(z, reuse = False):
-    with tf.variable_scope(name_or_scope="decoder", reuse=reuse) as scope:
-        W1 = tf.get_variable(name="W1",shape = [20,30],initializer = init)
-        b1 = tf.get_variable(name="b1",shape = [30],initializer = init)
-        r1 = tf.matmul(z,W1)+b1
-        out1 = tf.nn.relu(r1)
-
-        W2 =tf.get_variable(name="W2",shape = [30,50],initializer = init)
-        b2 = tf.get_variable(name="b2",shape = [50],initializer = init)
-        r2 = tf.matmul(out1,W2)+b2
-        out2 = tf.nn.relu(r2)
-        
-        W3 =tf.get_variable(name="W3",shape = [50,784],initializer = init)
-        b3 = tf.get_variable(name="b3",shape = [784],initializer = init)
-        r3 = tf.matmul(out2,W3)+b3
-        output = tf.nn.sigmoid(r3)
+    l = [z_dim, 30, 50, image_size]
+    with tf.variable_scope(name_or_scope="mnist_decoder", reuse=reuse) as scope:
+        out1 = tf.layers.dense(z, l[1], activation=tf.nn.relu)
+        out2 = tf.layers.dense(out1, l[2], activation=tf.nn.relu)
+        output = tf.layers.dense(out2, l[3], activation=tf.nn.sigmoid)               
         return output
 
 def random_z():
-    return np.random.normal(size=[1,20])
+    return np.random.normal(size=[1,z_dim])
 
 g = tf.Graph()
 
 with g.as_default():
-    X = tf.placeholder(tf.float32, [None, 784])
-    Z = tf.placeholder(tf.float32, [1,20])
+    X = tf.placeholder(tf.float32, [None, image_size])
+    Z = tf.placeholder(tf.float32, [1,z_dim])
     enc = encoder(X)
     dec = decoder(enc)
     dec_gen = decoder(Z,True)
