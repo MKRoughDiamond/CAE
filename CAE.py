@@ -10,9 +10,7 @@ import pickle
 #from CIFAR_AE import decoder as cifar_decoder
 #from CIFAR_AE import get_data
 
-
-from tensorflow.examples.tutorials.mnist import input_data as mnist_input
-mnist = mnist_input.read_data_sets("MNIST_data/", one_hot=False)
+# ==================== Hyperparams ====================
 
 total_epochs = 150
 batch_size = 100
@@ -22,7 +20,37 @@ mnist_image_size = 28*28
 cifar_image_size = 32
 z_dim = 400
 
-init = tf.random_normal_initializer(mean=0, stddev=0.15)
+
+
+# ==================== Load MNIST data ====================
+
+from tensorflow.examples.tutorials.mnist import input_data as mnist_input
+mnist = mnist_input.read_data_sets("MNIST_data/", one_hot=False)
+
+train_x = mnist.train.images
+train_y = mnist.train.labels
+
+train_x = np.asarray(train_x)
+train_y = np.asarray(train_y)
+
+idx = np.argsort(train_y)
+train_x = train_x[idx]
+train_y = train_y[idx]
+
+cnt = -1
+mnist_x_per_class = {}
+for i in range(train_x.shape[0]):
+    if cnt == train_y[i]:
+        mnist_x_per_class[cnt].append(train_x[i])
+    else:
+        cnt += 1
+        mnist_x_per_class[cnt] = []
+
+for i in range(len(mnist_x_per_class)):
+    print(len(mnist_x_per_class[i]))
+
+
+# ==================== Load CIFAR data ====================
 
 def conv_image(raw):
     to_float = np.array(raw,dtype=float)/255.0
@@ -43,6 +71,35 @@ def get_data():
         l_x=np.concatenate((l_x,data_x),axis=0)
         l_y=np.concatenate((l_y,data_y),axis=0)
     return l_x,l_y
+
+cifar_data_x, cifar_data_y = get_data()
+print(cifar_data_x.shape)
+print(cifar_data_y.shape)
+
+train_x = np.asarray(cifar_data_x)
+train_y = np.asarray(cifar_data_y)
+
+idx = np.argsort(train_y)
+train_x = train_x[idx]
+train_y = train_y[idx]
+
+cnt = -1
+cifar_x_per_class = {}
+for i in range(train_x.shape[0]):
+    if cnt == train_y[i]:
+        cifar_x_per_class[cnt].append(train_x[i])
+    else:
+        cnt += 1
+        cifar_x_per_class[cnt] = []
+
+for i in range(len(cifar_x_per_class)):
+    print(len(cifar_x_per_class[i]))
+
+
+
+# ==================== Models ====================
+
+init = tf.random_normal_initializer(mean=0, stddev=0.15)
 
 def mnist_encoder(x, reuse = False ):
     l = [mnist_image_size, 50, 30, z_dim]
@@ -89,6 +146,15 @@ def cifar_decoder(z, reuse = False):
 def random_z():
     return np.random.normal(size=[1,z_dim])
 
+def distance(x1, x2):
+    d = 0
+    for i in range(x1.shape[0]):
+        for j in range(x2.shape[0]):
+            l = x1[i] -x2[j]
+            d += np.sqrt(np.dot(l,l))
+    return d / (x1.shape[0] * x2.shape[0])
+
+
 g = tf.Graph()
 
 with g.as_default():
@@ -121,10 +187,7 @@ with g.as_default():
     #train = optimizer.minimize(loss, var_list = e_vars+d_vars)
     train = optimizer.minimize(loss)
 
-with tf.Session(graph = g) as sess:
-    cifar_data_x, cifar_data_y = get_data()
-    print(cifar_data_x.shape)
-    print(cifar_data_y.shape)
+with tf.Session(graph = g) as sess: 
     sess.run(tf.global_variables_initializer())
     total_batchs = int(50000 / batch_size)
    
@@ -157,6 +220,16 @@ with tf.Session(graph = g) as sess:
             cifar_gen = sess.run(cifar_dec,feed_dict = {cifar_X: cifar_batch_x})
             cifar_img = cifar_gen[0].reshape([32,32,3])
             mpimg.imsave('./epoch/epoch'+str(epoch)+'_cifar.png',cifar_img,format='png')
+
+        if epoch % 2 == 0:
+            for i in range(10):
+                for j in range(10):
+                    mnist_z = sess.run(mnist_enc, feed_dict = {mnist_X: mnist_x_per_class[i][0:100]})
+                    cifar_z = sess.run(cifar_enc, feed_dict = {cifar_X: cifar_x_per_class[j][0:100]})
+                    if i==j:
+                        print('   ',i,j,distance(mnist_z, cifar_z))
+                    else:
+                        print(i,j,distance(mnist_z, cifar_z))
 
 
 
