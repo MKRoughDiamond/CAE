@@ -4,6 +4,13 @@ import matplotlib.image as mpimg
 import random
 import pickle
 
+LOAD_CKPT = False # If this is false, new ckpt is created.
+                  # Otherwise, existing ckpt is loaded.
+OVERWRITE_CKPT = True # If this is true, trained variable values are written on the (new/existing) ckpt.
+                      # CAUTION!! LOAD_CKPT == True && OVERWRITE_CKPT == True, then existing ckpt will be overwritten.
+                      # If this is false, training process will go on, but won't be saved.
+
+
 #from MNIST_AE import encoder as mnise_encoder
 #from MNISE_AE import decoder as mnise_decoder
 #from CIFAR_AE import encoder as cifar_encoder
@@ -187,8 +194,12 @@ with g.as_default():
     #train = optimizer.minimize(loss, var_list = e_vars+d_vars)
     train = optimizer.minimize(loss)
 
-with tf.Session(graph = g) as sess: 
-    sess.run(tf.global_variables_initializer())
+with tf.Session(graph = g) as sess:
+    saver = tf.train.Saver()
+    if LOAD_CKPT:
+        saver.restore(sess,"./CAE.ckpt")
+    else:
+        sess.run(tf.global_variables_initializer())
     total_batchs = int(50000 / batch_size)
    
     for epoch in range(total_epochs):
@@ -205,6 +216,9 @@ with tf.Session(graph = g) as sess:
             }
             sess.run(train, feed_dict = feed)
             ml, cl, zl, loss_r = sess.run([mnist_loss, cifar_loss, z_loss, loss], feed_dict = feed)
+        
+        if OVERWRITE_CKPT:
+            save_path = saver.save(sess,"./CAE.ckpt")
             
         if epoch % 2 == 0:
             print("======= Epoch : ", epoch , " =======")
